@@ -1,0 +1,10 @@
+{
+  "index_name": "quora_semantic_field_with_dense_model",
+  "index_body": "indices/quora_semantic_field.json",
+  "corpora_name": "quora",
+  "ingest_percentage": 100,
+  "variable_queries": 10000,
+  "warmup_time_period": 5,
+  "index_knn": true,
+  "k": 100
+}

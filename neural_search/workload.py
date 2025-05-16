@@ -274,6 +274,67 @@ class NeuralMultimodalQueryParamSource(QueryParamSource):
                 vector_embedding_query['query_image'] = query_image
         return params
 
+class NeuralSearchSemanticFieldParamSource(QueryParamSource):
+    def params(self):
+        params = self._params
+        with open('model_id.json', 'r') as f:
+            d = json.loads(f.read())
+            params['body']['query']['neural']['text']['model_id'] = d['model_id']
+
+        count = self._params.get("variable-queries", 0)
+        if count > 0:
+            script_dir = os.path.dirname(os.path.realpath(__file__))
+            with open(script_dir + '/queries.json', 'r') as f:
+                lines = f.read().splitlines()
+                line =random.choice(lines)
+                query_text = json.loads(line)['text']
+                params['body']['query']['neural']['text']['query_text'] = query_text
+        return params
+
+
+def read_json(filepath):
+    with open(filepath, "r") as f:
+        return json.load(f)
+    return None
+
+
+def read_model_id(filepath="model_id.json"):
+    return read_json(filepath)["model_id"]
+
+def inject_model_id_to_semantic_field(mapping, model_id, field_name="text"):
+    """
+    Inject the model_id into the specified semantic field in the mapping.
+    """
+    try:
+        mapping["mappings"]["properties"][field_name]["model_id"] = model_id
+    except KeyError as e:
+        raise ValueError(
+            f"Could not inject model_id: field '{field_name}' not found in mapping."
+        ) from e
+    return mapping
+
+class CreateIndexWithSemanticFieldParamSource:
+    def __init__(self, workload, params, **kwargs):
+        self.params = params
+
+        index_body_path = Path(script_dir) / params["index_body"]
+        if not index_body_path.exists():
+            raise FileNotFoundError(f"index_body file not found: {index_body_path}")
+
+        index_body = read_json(index_body_path)
+        model_id = read_model_id()
+
+        index_body = inject_model_id_to_semantic_field(index_body, model_id)
+
+        self.params["body"] = index_body
+        self.params["index"] = params["index_name"]
+
+    def partition(self, partition_index, total_partitions):
+        return self
+
+    def params(self):
+        return self.params
+
 def register(registry):
     registry.register_param_source("neural-sparse-search-source", NeuralSparseQueryParamSource)
     registry.register_param_source("neural-hybrid-search-source", NeuralHybridQueryParamSource)
@@ -282,4 +343,5 @@ def register(registry):
     registry.register_param_source("neural-semantic-search-source", NeuralSemanticQueryParamSource)
     registry.register_param_source("neural-multimodal-search-source", NeuralMultimodalQueryParamSource)
     registry.register_param_source("create-ingest-pipeline-source", ingest_pipeline_param_source)
-
+    registry.register_param_source("create-index-with-semantic-field-param-source", CreateIndexWithSemanticFieldParamSource)
+    registry.register_param_source("neural-search-semantic-field", NeuralSearchSemanticFieldParamSource)
