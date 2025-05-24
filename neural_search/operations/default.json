@@ -68,14 +68,35 @@
   "body": {
     "description": "An NLP ingest pipeline for dense embedding",
     "processors": [
-      {
-        "text_embedding": {
-          "model_id": "",
-          "field_map": {
-            "text": "passage_embedding"
+        {%- if nested is defined and nested == true  %}
+          {
+            "text_chunking": {
+              "algorithm": {
+                "fixed_token_length": {}
+              },
+              "field_map": {
+                "text": "passage_chunk"
+              }
+            }
+          },
+          {
+            "text_embedding": {
+              "model_id": "",
+              "field_map": {
+                "passage_chunk": "passage_chunk_embedding"
+              }
+            }
+          }
+      {% else %}
+        {
+          "text_embedding": {
+            "model_id": "",
+            "field_map": {
+              "text": "passage_embedding"
+            }
           }
         }
-      }
+      {% endif %}
     ]
   }
 },
